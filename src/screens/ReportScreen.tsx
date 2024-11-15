@@ -46,21 +46,42 @@ const ReportScreen = () => {
   
     for (const category of categories) {
       if (category.keywords.some((word) => new RegExp(`\\b${word.toLowerCase()}\\b`).test(lowerDescription))) {
-        console.log(`Transação categorizada como: ${category.name} para descrição: ${description}`);
         return category.name;
       }
     }
-  
-    console.log(`Transação categorizada como: Outros para descrição: ${description}`);
+
     return 'Outros';
   };
+
+  const recategorizeTransactions = async (transactions: Transaction[]) => {
+    const storedCategories = await AsyncStorage.getItem('categories');
+    const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
+  
+    return transactions.map((transaction) => ({
+      ...transaction,
+      category: categorizeTransaction(transaction.description, categories),
+    }));
+  };
+
+  
   useEffect(() => {
+    // Carrega todas as transações ao montar o componente
     loadMonthlyTransactions();
   }, []);
 
   const loadMonthlyTransactions = async () => {
     const storedData = await AsyncStorage.getItem('monthlyTransactions');
-    const transactionsData = storedData ? JSON.parse(storedData) : {};
+    const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+  
+    if (selectedMonth && transactionsData[selectedMonth]) {
+      const updatedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
+      transactionsData[selectedMonth] = updatedTransactions;
+  
+      // Atualiza o estado com as transações e os totais atualizados
+      setTransactions(updatedTransactions);
+      calculateTotals(updatedTransactions);
+    }
+  
     setMonthlyTransactions(transactionsData);
   };
 
@@ -68,31 +89,25 @@ const ReportScreen = () => {
     if (selectedMonth) {
       const storedData = await AsyncStorage.getItem('monthlyTransactions');
       const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-
-      // Remove o mês selecionado dos dados de transações
+  
       const monthTransactions = monthlyTransactions[selectedMonth] || [];
       delete monthlyTransactions[selectedMonth];
       await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
-
-      // Atualiza a lista de identificadores processados removendo os do mês excluído
+  
       const storedIdentifiers = await AsyncStorage.getItem('processedIdentifiers');
       const processedIdentifiers = storedIdentifiers ? JSON.parse(storedIdentifiers) : [];
-
-      // Filtra os identificadores removendo aqueles que pertencem às transações do mês excluído
       const updatedIdentifiers = processedIdentifiers.filter(
         (id: string) => !monthTransactions.some(transaction => transaction.identifier === id)
       );
-
-      // Salva a lista atualizada de identificadores no AsyncStorage
+  
       await AsyncStorage.setItem('processedIdentifiers', JSON.stringify(updatedIdentifiers));
-
-      // Atualiza o estado para refletir a remoção
-      loadMonthlyTransactions();
+  
       setSelectedMonth(null);
       setTransactions([]);
       setTotalIncome(0);
       setTotalExpense(0);
       setCategoryTotals({});
+      loadMonthlyTransactions(); // Carrega os dados atualizados após a exclusão
     } else {
       Alert.alert("Erro", "Nenhum mês selecionado para exclusão.");
     }
@@ -112,8 +127,7 @@ const ReportScreen = () => {
       // Recupera as categorias armazenadas para categorização
       const storedCategories = await AsyncStorage.getItem('categories');
       const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
-  
-      console.log("Categorias carregadas:", categories); // Log para verificar as categorias carregadas
+
   
       Papa.parse(fileContent, {
         header: true,
@@ -125,8 +139,6 @@ const ReportScreen = () => {
   
               // Chama categorizeTransaction com a descrição e as categorias para cada transação
               const category = categorizeTransaction(item.Descrição || '', categories);
-  
-              console.log(`Categoria atribuída: ${category} para descrição: ${item.Descrição}`); // Log para verificar a categoria atribuída
   
               const dateString = item.Data || '';
               const parsedDate = parse(dateString, 'dd/MM/yyyy', new Date());
@@ -142,7 +154,7 @@ const ReportScreen = () => {
               };
             })
           );
-  
+
           const validTransactions = data.filter((transaction) => transaction.date !== '');
   
           if (validTransactions.length > 0) {
@@ -152,7 +164,7 @@ const ReportScreen = () => {
               Alert.alert("Aviso", "Este arquivo já foi importado anteriormente.");
               return;
             }
-  
+
             const firstTransactionDate = new Date(validTransactions[0].date);
             const yearMonth = `${firstTransactionDate.getFullYear()}-${String(
               firstTransactionDate.getUTCMonth() + 1
@@ -194,12 +206,23 @@ const ReportScreen = () => {
   };
 
   useEffect(() => {
-    if (selectedMonth) {
-      const transactions = monthlyTransactions[selectedMonth] || [];
-      setTransactions(transactions);
-      calculateTotals(transactions);
-    }
-  }, [selectedMonth, monthlyTransactions]);
+    const loadTransactionsWithCategoryCheck = async () => {
+        const categoriesUpdated = await AsyncStorage.getItem('categoriesUpdated');
+        if (categoriesUpdated === 'true') {
+            // Recarrega as transações e recategoriza se houver uma atualização de categorias
+            await loadMonthlyTransactions();
+            await AsyncStorage.removeItem('categoriesUpdated'); // Remove o sinalizador após o carregamento
+        }
+
+        if (selectedMonth) {
+            const transactions = monthlyTransactions[selectedMonth] || [];
+            setTransactions(transactions);
+            calculateTotals(transactions);
+        }
+    };
+
+    loadTransactionsWithCategoryCheck();
+}, [selectedMonth, monthlyTransactions]);
 
   const calculateTotals = (transactions: Transaction[]) => {
     let income = 0;
@@ -216,7 +239,6 @@ const ReportScreen = () => {
           categoryTotalsTemp[transaction.category] = 0;
         }
         categoryTotalsTemp[transaction.category] += transaction.amount;
-        console.log(`Categoria: ${transaction.category}, Total atualizado: ${categoryTotalsTemp[transaction.category]}`); // Log para verificar o total por categoria
       }
     });
   

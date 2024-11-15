@@ -26,8 +26,10 @@ const CategoriesScreen = () => {
 
   const saveCategories = async (newCategories: Category[]) => {
     await AsyncStorage.setItem('categories', JSON.stringify(newCategories));
+    await AsyncStorage.setItem('categoriesUpdated', 'true'); // Define o sinalizador para indicar que houve uma atualização
     setCategories(newCategories);
   };
+  
 
   const addOrEditCategory = () => {
     if (!categoryName.trim()) return;
@@ -52,7 +54,7 @@ const CategoriesScreen = () => {
         style: "destructive",
         onPress: () => {
           const updatedCategories = categories.filter((cat) => cat.name !== categoryName);
-          saveCategories(updatedCategories);
+          saveCategories(updatedCategories); // Salva as categorias atualizadas no AsyncStorage
         },
       },
     ]);
