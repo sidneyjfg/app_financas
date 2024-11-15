@@ -36,6 +36,15 @@ const CardStatementScreen = () => {
     loadMonthlyTransactions();
   }, []);
 
+  useEffect(() => {
+    // Carrega as transações automaticamente quando o mês selecionado muda
+    if (selectedMonth) {
+      const transactionsForSelectedMonth = monthlyTransactions[selectedMonth] || [];
+      setTransactions(transactionsForSelectedMonth);
+      calculateTotals(transactionsForSelectedMonth);
+    }
+  }, [selectedMonth, monthlyTransactions]);
+
   const categorizeTransaction = (title: string, categories: Category[]) => {
     const lowerTitle = title.toLowerCase();
     for (const category of categories) {
@@ -58,13 +67,14 @@ const CardStatementScreen = () => {
   const loadMonthlyTransactions = async () => {
     const storedData = await AsyncStorage.getItem('monthlyTransactions');
     const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-
-    if (selectedMonth && transactionsData[selectedMonth]) {
-      const updatedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
-      setTransactions(updatedTransactions);
-      calculateTotals(updatedTransactions);
-    }
     setMonthlyTransactions(transactionsData);
+
+    // Carrega o mês selecionado automaticamente se já estiver definido
+    if (selectedMonth && transactionsData[selectedMonth]) {
+      const transactionsForSelectedMonth = transactionsData[selectedMonth];
+      setTransactions(transactionsForSelectedMonth);
+      calculateTotals(transactionsForSelectedMonth);
+    }
   };
 
   const handleDeleteMonth = async () => {
@@ -101,13 +111,13 @@ const CardStatementScreen = () => {
             const amount = parseFloat(item.amount || '0');
             const category = categorizeTransaction(item.title || '', categories);
             const dateString = item.date || '';
-            const parsedDate = new Date(dateString); // Assume que a data está no formato ISO ou ano-mês-dia
+            const parsedDate = new Date(dateString);
             const isValidDate = !isNaN(parsedDate.getTime());
 
             return {
               date: isValidDate ? parsedDate.toISOString().split('T')[0] : '',
               title: item.title || '',
-              amount: -Math.abs(amount), // Garante que os valores sejam negativos
+              amount: -Math.abs(amount),
               category,
             };
           });
@@ -121,8 +131,7 @@ const CardStatementScreen = () => {
             ).padStart(2, '0')}`;
 
             await saveTransactionsByMonth(yearMonth, validTransactions);
-            setSelectedMonth(yearMonth);
-            await loadMonthlyTransactions();
+            setSelectedMonth(yearMonth); // Define o mês selecionado após a importação
           } else {
             Alert.alert('Erro', 'Nenhuma transação válida encontrada no arquivo CSV.');
           }
@@ -172,10 +181,7 @@ const CardStatementScreen = () => {
 
       <Picker
         selectedValue={selectedMonth}
-        onValueChange={(itemValue) => {
-          setSelectedMonth(itemValue);
-          loadMonthlyTransactions(); // Carrega as transações ao mudar de mês
-        }}
+        onValueChange={(itemValue) => setSelectedMonth(itemValue)}
         style={styles.picker}
       >
         <Picker.Item label="Selecione o mês" value={null} />
