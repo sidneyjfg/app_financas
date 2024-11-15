@@ -3,97 +3,82 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f6fa', // cor de fundo clara e suave
     padding: 20,
+    backgroundColor: '#f5f5f5',
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 20,
+    color: '#333',
+  },
+  picker: {
+    backgroundColor: '#fff',
+    marginBottom: 15,
+    borderRadius: 10,
+    padding: 10,
   },
   totalSpent: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: '#FF6B6B', // cor de destaque para total gasto
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#f44336',
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 15,
+  },
+  listContainer: {
+    paddingTop: 10,
   },
   transactionItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    backgroundColor: '#fff',
     padding: 15,
+    borderRadius: 10,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 3,
   },
   transactionDate: {
     fontSize: 14,
-    color: '#888',
+    color: '#999',
   },
   transactionDescription: {
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
-    marginVertical: 5,
   },
   transactionAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50', // verde para valores positivos
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f44336',
+    marginTop: 5,
   },
   transactionCategory: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#666',
     marginTop: 5,
-  },
-  listContainer: {
-    paddingBottom: 80,
   },
   floatingButton: {
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: '#3b5998', // azul moderno
-    borderRadius: 50,
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    backgroundColor: '#007bff',
+    borderRadius: 30,
+    padding: 15,
     elevation: 5,
   },
-  addKeywordText: {
-    color: '#3b5998',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-    marginTop: 10,
-  },
-  picker: {
-    marginVertical: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 10,
-},
-deleteButton: {
-    backgroundColor: '#FF6B6B',
+  deleteButton: {
+    backgroundColor: '#ff5252',
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
-},
-deleteButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-},
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });
 
 export default styles;

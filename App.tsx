@@ -7,6 +7,7 @@ import CategoriesScreen from './src/screens/CategoriesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CardStatementScreen from './src/screens/CardStatementScreen';
 
+
 const Tab = createBottomTabNavigator();
 
 const App = () => {

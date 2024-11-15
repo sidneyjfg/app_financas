@@ -39,11 +39,11 @@ const ReportScreen = () => {
   const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  
+
+
   const categorizeTransaction = (description: string, categories: Category[]) => {
     const lowerDescription = description.toLowerCase();
-  
+
     for (const category of categories) {
       if (category.keywords.some((word) => new RegExp(`\\b${word.toLowerCase()}\\b`).test(lowerDescription))) {
         return category.name;
@@ -56,14 +56,14 @@ const ReportScreen = () => {
   const recategorizeTransactions = async (transactions: Transaction[]) => {
     const storedCategories = await AsyncStorage.getItem('categories');
     const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
-  
+
     return transactions.map((transaction) => ({
       ...transaction,
       category: categorizeTransaction(transaction.description, categories),
     }));
   };
 
-  
+
   useEffect(() => {
     // Carrega todas as transações ao montar o componente
     loadMonthlyTransactions();
@@ -72,16 +72,16 @@ const ReportScreen = () => {
   const loadMonthlyTransactions = async () => {
     const storedData = await AsyncStorage.getItem('monthlyTransactions');
     const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-  
+
     if (selectedMonth && transactionsData[selectedMonth]) {
       const updatedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
       transactionsData[selectedMonth] = updatedTransactions;
-  
+
       // Atualiza o estado com as transações e os totais atualizados
       setTransactions(updatedTransactions);
       calculateTotals(updatedTransactions);
     }
-  
+
     setMonthlyTransactions(transactionsData);
   };
 
@@ -89,19 +89,19 @@ const ReportScreen = () => {
     if (selectedMonth) {
       const storedData = await AsyncStorage.getItem('monthlyTransactions');
       const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-  
+
       const monthTransactions = monthlyTransactions[selectedMonth] || [];
       delete monthlyTransactions[selectedMonth];
       await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
-  
+
       const storedIdentifiers = await AsyncStorage.getItem('processedIdentifiers');
       const processedIdentifiers = storedIdentifiers ? JSON.parse(storedIdentifiers) : [];
       const updatedIdentifiers = processedIdentifiers.filter(
         (id: string) => !monthTransactions.some(transaction => transaction.identifier === id)
       );
-  
+
       await AsyncStorage.setItem('processedIdentifiers', JSON.stringify(updatedIdentifiers));
-  
+
       setSelectedMonth(null);
       setTransactions([]);
       setTotalIncome(0);
@@ -112,23 +112,23 @@ const ReportScreen = () => {
       Alert.alert("Erro", "Nenhum mês selecionado para exclusão.");
     }
   };
-  
+
   const handleSelectCSV = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
       if (result.canceled || !result.assets?.[0]?.uri) return;
-  
+
       const fileUri = result.assets[0].uri;
       const fileContent = await FileSystem.readAsStringAsync(fileUri);
-  
+
       const storedIdentifiers = await AsyncStorage.getItem('processedIdentifiers');
       const processedIdentifiers = storedIdentifiers ? JSON.parse(storedIdentifiers) : [];
-  
+
       // Recupera as categorias armazenadas para categorização
       const storedCategories = await AsyncStorage.getItem('categories');
       const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
 
-  
+
       Papa.parse(fileContent, {
         header: true,
         complete: async (results) => {
@@ -136,14 +136,14 @@ const ReportScreen = () => {
             results.data.map(async (item: any) => {
               const amount = parseFloat(item.Valor || '0');
               const type = amount >= 0 ? 'Entrada' : 'Saída';
-  
+
               // Chama categorizeTransaction com a descrição e as categorias para cada transação
               const category = categorizeTransaction(item.Descrição || '', categories);
-  
+
               const dateString = item.Data || '';
               const parsedDate = parse(dateString, 'dd/MM/yyyy', new Date());
               const isValidDate = !isNaN(parsedDate.getTime());
-  
+
               return {
                 date: isValidDate ? parsedDate.toISOString().split('T')[0] : '',
                 description: item.Descrição || '',
@@ -156,10 +156,10 @@ const ReportScreen = () => {
           );
 
           const validTransactions = data.filter((transaction) => transaction.date !== '');
-  
+
           if (validTransactions.length > 0) {
             const firstIdentifier = validTransactions[0].identifier;
-  
+
             if (firstIdentifier && processedIdentifiers.includes(firstIdentifier)) {
               Alert.alert("Aviso", "Este arquivo já foi importado anteriormente.");
               return;
@@ -169,14 +169,14 @@ const ReportScreen = () => {
             const yearMonth = `${firstTransactionDate.getFullYear()}-${String(
               firstTransactionDate.getUTCMonth() + 1
             ).padStart(2, '0')}`;
-  
+
             await saveTransactionsByMonth(yearMonth, validTransactions);
-  
+
             if (firstIdentifier) {
               processedIdentifiers.push(firstIdentifier);
               await AsyncStorage.setItem('processedIdentifiers', JSON.stringify(processedIdentifiers));
             }
-  
+
             loadMonthlyTransactions();
           } else {
             Alert.alert("Erro", "Nenhuma transação válida encontrada no arquivo CSV.");
@@ -192,8 +192,8 @@ const ReportScreen = () => {
       console.error('Erro ao selecionar o arquivo:', error);
     }
   };
-  
-  
+
+
 
 
   const saveTransactionsByMonth = async (yearMonth: string, newTransactions: Transaction[]) => {
@@ -207,46 +207,46 @@ const ReportScreen = () => {
 
   useEffect(() => {
     const loadTransactionsWithCategoryCheck = async () => {
-        const categoriesUpdated = await AsyncStorage.getItem('categoriesUpdated');
-        if (categoriesUpdated === 'true') {
-            // Recarrega as transações e recategoriza se houver uma atualização de categorias
-            await loadMonthlyTransactions();
-            await AsyncStorage.removeItem('categoriesUpdated'); // Remove o sinalizador após o carregamento
-        }
+      const categoriesUpdated = await AsyncStorage.getItem('categoriesUpdated');
+      if (categoriesUpdated === 'true') {
+        // Recarrega as transações e recategoriza se houver uma atualização de categorias
+        await loadMonthlyTransactions();
+        await AsyncStorage.removeItem('categoriesUpdated'); // Remove o sinalizador após o carregamento
+      }
 
-        if (selectedMonth) {
-            const transactions = monthlyTransactions[selectedMonth] || [];
-            setTransactions(transactions);
-            calculateTotals(transactions);
-        }
+      if (selectedMonth) {
+        const transactions = monthlyTransactions[selectedMonth] || [];
+        setTransactions(transactions);
+        calculateTotals(transactions);
+      }
     };
 
     loadTransactionsWithCategoryCheck();
-}, [selectedMonth, monthlyTransactions]);
+  }, [selectedMonth, monthlyTransactions]);
 
   const calculateTotals = (transactions: Transaction[]) => {
     let income = 0;
     let expense = 0;
     const categoryTotalsTemp: Record<string, number> = {};
-  
+
     transactions.forEach((transaction) => {
       if (transaction.type === 'Entrada') {
         income += transaction.amount;
       } else {
         expense += transaction.amount;
-  
+
         if (!categoryTotalsTemp[transaction.category]) {
           categoryTotalsTemp[transaction.category] = 0;
         }
         categoryTotalsTemp[transaction.category] += transaction.amount;
       }
     });
-  
+
     setTotalIncome(income);
     setTotalExpense(expense);
     setCategoryTotals(categoryTotalsTemp);
   };
-  
+
 
   const renderTransaction = ({ item }: { item: Transaction }) => (
     <View style={styles.transactionItem}>
