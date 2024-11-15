@@ -19,12 +19,40 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  totalSpent: {
+  totalIncome: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  totalExpense: {
     fontSize: 16,
     fontWeight: '600',
     color: '#f44336',
-    marginBottom: 10,
+    marginTop: 10,
     textAlign: 'center',
+  },
+  categoryContainer: {
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  categoryText: {
+    fontSize: 16,
+    color: '#555',
+    fontWeight: '500',
+  },
+  categoryAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   listContainer: {
     paddingTop: 10,
@@ -43,7 +71,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  transactionDescription: {
+  transactionTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
@@ -51,8 +79,13 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f44336',
     marginTop: 5,
+  },
+  transactionAmountPositive: {
+    color: '#4CAF50',
+  },
+  transactionAmountNegative: {
+    color: '#f44336',
   },
   transactionCategory: {
     fontSize: 14,
@@ -77,6 +110,18 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+  },
+  showMoreButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  showMoreText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
