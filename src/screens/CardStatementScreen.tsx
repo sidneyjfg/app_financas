@@ -31,19 +31,35 @@ const CardStatementScreen = () => {
   const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const excludeKeywords = ['pagamento recebido', 'fatura', 'cartão']; // Palavras-chave para excluir
 
   useEffect(() => {
     loadMonthlyTransactions();
   }, []);
 
   useEffect(() => {
-    // Carrega as transações automaticamente quando o mês selecionado muda
+    // Exibe transações e calcula totais apenas quando um mês válido é selecionado
     if (selectedMonth) {
       const transactionsForSelectedMonth = monthlyTransactions[selectedMonth] || [];
-      setTransactions(transactionsForSelectedMonth);
-      calculateTotals(transactionsForSelectedMonth);
+      const filteredTransactions = filterTransactions(transactionsForSelectedMonth); // Aplica o filtro ao carregar
+      setTransactions(filteredTransactions);
+      calculateTotals(filteredTransactions);
+    } else {
+      // Limpa as transações e totais quando "Selecione o mês" é escolhido
+      setTransactions([]);
+      setTotalSpent(0);
+      setCategoryTotals({});
     }
   }, [selectedMonth, monthlyTransactions]);
+
+  const filterTransactions = (transactions: Transaction[]) => {
+    if (!transactions || transactions.length === 0) return [];
+
+    return transactions.filter((transaction) => {
+      const lowerTitle = transaction.title ? transaction.title.toLowerCase() : '';
+      return !excludeKeywords.some((keyword) => lowerTitle.includes(keyword));
+    });
+  };
 
   const categorizeTransaction = (title: string, categories: Category[]) => {
     const lowerTitle = title.toLowerCase();
@@ -55,26 +71,33 @@ const CardStatementScreen = () => {
     return 'Outros';
   };
 
-  const recategorizeTransactions = async (transactions: Transaction[]) => {
+  const recategorizeTransactions = async () => {
     const storedCategories = await AsyncStorage.getItem('categories');
     const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
-    return transactions.map((transaction) => ({
-      ...transaction,
-      category: categorizeTransaction(transaction.title, categories),
-    }));
+
+    if (selectedMonth && transactions.length > 0) {
+      const recategorizedTransactions = transactions.map((transaction) => ({
+        ...transaction,
+        category: categorizeTransaction(transaction.title, categories),
+      }));
+
+      setTransactions(recategorizedTransactions);
+      calculateTotals(recategorizedTransactions);
+
+      const updatedMonthlyTransactions = { ...monthlyTransactions, [selectedMonth]: recategorizedTransactions };
+      setMonthlyTransactions(updatedMonthlyTransactions);
+      await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(updatedMonthlyTransactions));
+
+      Alert.alert('Sucesso', 'Categorias atualizadas com sucesso.');
+    } else {
+      Alert.alert('Erro', 'Nenhuma transação encontrada para atualizar.');
+    }
   };
 
   const loadMonthlyTransactions = async () => {
     const storedData = await AsyncStorage.getItem('monthlyTransactions');
     const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
     setMonthlyTransactions(transactionsData);
-
-    // Carrega o mês selecionado automaticamente se já estiver definido
-    if (selectedMonth && transactionsData[selectedMonth]) {
-      const transactionsForSelectedMonth = transactionsData[selectedMonth];
-      setTransactions(transactionsForSelectedMonth);
-      calculateTotals(transactionsForSelectedMonth);
-    }
   };
 
   const handleDeleteMonth = async () => {
@@ -107,7 +130,7 @@ const CardStatementScreen = () => {
       Papa.parse(fileContent, {
         header: true,
         complete: async (results) => {
-          const data: Transaction[] = results.data.map((item: any, index: number) => {
+          const data: Transaction[] = results.data.map((item: any) => {
             const amount = parseFloat(item.amount || '0');
             const category = categorizeTransaction(item.title || '', categories);
             const dateString = item.date || '';
@@ -130,8 +153,32 @@ const CardStatementScreen = () => {
               firstTransactionDate.getMonth() + 1
             ).padStart(2, '0')}`;
 
-            await saveTransactionsByMonth(yearMonth, validTransactions);
-            setSelectedMonth(yearMonth); // Define o mês selecionado após a importação
+            const storedData = await AsyncStorage.getItem('monthlyTransactions');
+            const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+
+            if (monthlyTransactions[yearMonth]) {
+              Alert.alert(
+                'Mês já carregado',
+                `O mês ${yearMonth} já possui transações carregadas. Deseja sobrescrever os dados existentes?`,
+                [
+                  {
+                    text: 'Cancelar',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Sobrescrever',
+                    onPress: async () => {
+                      await saveTransactionsByMonth(yearMonth, validTransactions, true);
+                      Alert.alert('Sucesso', 'As transações foram sobrescritas com sucesso.');
+                      setSelectedMonth(null); // Limpa a seleção do mês após o carregamento
+                    },
+                  },
+                ]
+              );
+            } else {
+              await saveTransactionsByMonth(yearMonth, validTransactions, false);
+              setSelectedMonth(null); // Limpa a seleção do mês após o carregamento
+            }
           } else {
             Alert.alert('Erro', 'Nenhuma transação válida encontrada no arquivo CSV.');
           }
@@ -142,10 +189,16 @@ const CardStatementScreen = () => {
     }
   };
 
-  const saveTransactionsByMonth = async (yearMonth: string, newTransactions: Transaction[]) => {
+  const saveTransactionsByMonth = async (
+    yearMonth: string,
+    newTransactions: Transaction[],
+    overwrite: boolean = false
+  ) => {
     const storedData = await AsyncStorage.getItem('monthlyTransactions');
     const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-    monthlyTransactions[yearMonth] = [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
+
+    monthlyTransactions[yearMonth] = overwrite ? newTransactions : [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
+
     await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
     setMonthlyTransactions(monthlyTransactions);
   };
@@ -155,11 +208,14 @@ const CardStatementScreen = () => {
     let totalSpent = 0;
 
     transactions.forEach((transaction) => {
-      totalSpent += transaction.amount;
-      if (!totalsByCategory[transaction.category]) {
-        totalsByCategory[transaction.category] = 0;
+      if (transaction.amount < 0) {
+        totalSpent += transaction.amount;
+
+        if (!totalsByCategory[transaction.category]) {
+          totalsByCategory[transaction.category] = 0;
+        }
+        totalsByCategory[transaction.category] += transaction.amount;
       }
-      totalsByCategory[transaction.category] += transaction.amount;
     });
 
     setTotalSpent(totalSpent);
@@ -185,10 +241,13 @@ const CardStatementScreen = () => {
         style={styles.picker}
       >
         <Picker.Item label="Selecione o mês" value={null} />
-        {Object.keys(monthlyTransactions).map((yearMonth) => (
-          <Picker.Item key={yearMonth} label={yearMonth} value={yearMonth} />
-        ))}
+        {Object.keys(monthlyTransactions)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime()) // Ordena os meses em ordem cronológica
+          .map((yearMonth) => (
+            <Picker.Item key={yearMonth} label={yearMonth} value={yearMonth} />
+          ))}
       </Picker>
+
 
       <Text style={styles.totalExpense}>Total Gasto: R$ {totalSpent.toFixed(2)}</Text>
 
@@ -212,6 +271,10 @@ const CardStatementScreen = () => {
 
       <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteMonth}>
         <Text style={styles.deleteButtonText}>Excluir Extrato do Mês</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.updateButton} onPress={recategorizeTransactions}>
+        <Text style={styles.updateButtonText}>Atualizar Categorias</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.floatingButton} onPress={handleSelectCSV}>

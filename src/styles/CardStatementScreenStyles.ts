@@ -15,9 +15,15 @@ const styles = StyleSheet.create({
   },
   picker: {
     backgroundColor: '#fff',
-    marginBottom: 15,
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 20,
+    height: 100,
+    justifyContent:'center' ,  // Centraliza verticalmente o texto do Picker
+    paddingHorizontal: 10,
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   totalIncome: {
     fontSize: 16,
@@ -107,6 +113,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    marginBottom:10,
   },
   deleteButtonText: {
     color: '#fff',
@@ -124,6 +131,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  updateButton: {
+    backgroundColor: '#4CAF50',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  updateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
 });
 
 export default styles;
