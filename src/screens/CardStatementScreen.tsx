@@ -94,11 +94,49 @@ const CardStatementScreen = () => {
     }
   };
 
-  const loadMonthlyTransactions = async () => {
-    const storedData = await AsyncStorage.getItem('monthlyTransactions');
-    const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-    setMonthlyTransactions(transactionsData);
+
+  const TRANSACTIONS_KEY = 'cardTransactions'; // Chave única para CardStatementScreen
+
+  const saveTransactionsByMonth = async (
+    yearMonth: string,
+    newTransactions: Transaction[],
+    overwrite: boolean = false
+  ) => {
+    try {
+      // Obter dados armazenados
+      const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+
+      // Atualizar os dados no mês específico
+      monthlyTransactions[yearMonth] = overwrite
+        ? newTransactions
+        : [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
+
+      // Salvar os dados atualizados
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(monthlyTransactions));
+
+      // Atualizar o estado
+      setMonthlyTransactions(monthlyTransactions);
+    } catch (error) {
+      console.error('Erro ao salvar transações:', error);
+      Alert.alert('Erro', 'Não foi possível salvar as transações.');
+    }
   };
+
+  const loadMonthlyTransactions = async () => {
+    try {
+      // Obter os dados do AsyncStorage
+      const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+
+      // Atualizar o estado
+      setMonthlyTransactions(transactionsData);
+    } catch (error) {
+      console.error('Erro ao carregar transações:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as transações.');
+    }
+  };
+
 
   const handleDeleteMonth = async () => {
     if (selectedMonth) {
@@ -189,19 +227,7 @@ const CardStatementScreen = () => {
     }
   };
 
-  const saveTransactionsByMonth = async (
-    yearMonth: string,
-    newTransactions: Transaction[],
-    overwrite: boolean = false
-  ) => {
-    const storedData = await AsyncStorage.getItem('monthlyTransactions');
-    const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
 
-    monthlyTransactions[yearMonth] = overwrite ? newTransactions : [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
-
-    await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
-    setMonthlyTransactions(monthlyTransactions);
-  };
 
   const calculateTotals = (transactions: Transaction[]) => {
     const totalsByCategory: Record<string, number> = {};

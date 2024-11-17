@@ -1,69 +1,103 @@
-import React from 'react';
-import { View, Text, ScrollView, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView } from 'react-native';
 import { Card } from 'react-native-paper';
-import Animated, { FadeIn, FadeOut, SlideInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { StackNavigationProp } from '@react-navigation/stack';
 import styles from '../styles/HomeScreenStyles';
 
-// Definindo os tipos de parâmetros para a navegação
-type RootStackParamList = {
-  Home: undefined;
-  Report: undefined;
+type CategoryStats = {
+  category: string;
+  total: number;
+  percentage: number;
+};
+type Transaction = {
+  date: string; // Data da transação
+  title?: string; // Nome ou título da transação (opcional)
+  amount: number; // Valor da transação (positivo ou negativo)
+  category?: string; // Categoria associada (opcional)
 };
 
-// Definindo o tipo de navegação para HomeScreen
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
+const HomeScreen: React.FC = () => {
+  const [categoryData, setCategoryData] = useState<CategoryStats[]>([]);
+  const [totalSpent, setTotalSpent] = useState(0);
 
-type Props = {
-  navigation: HomeScreenNavigationProp;
-};
+  useEffect(() => {
+    loadCategoryStats();
+  }, []);
 
-const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const loadCategoryStats = async () => {
+    try {
+      // Carregar transações da tela CardStatementScreen
+      const storedTransactions = await AsyncStorage.getItem('cardTransactions');
+      const transactions: Record<string, Transaction[]> = storedTransactions
+        ? JSON.parse(storedTransactions)
+        : {};
+  
+      // Consolidar dados por categoria
+      const totalsByCategory: Record<string, number> = {};
+      let totalSpentLocal = 0;
+  
+      // Iterar pelas transações por mês
+      Object.values(transactions).forEach((monthly: Transaction[]) => {
+        monthly.forEach((transaction) => {
+          if (transaction.amount < 0) {
+            totalSpentLocal += transaction.amount; // Soma os gastos totais
+            const category = transaction.category || 'Outros'; // Categoria padrão se não definida
+            totalsByCategory[category] = (totalsByCategory[category] || 0) + Math.abs(transaction.amount);
+          }
+        });
+      });
+  
+      // Converter os totais em um array de estatísticas
+      const categoryStats = Object.entries(totalsByCategory).map(([category, total]) => ({
+        category,
+        total,
+        percentage: parseFloat(((total / Math.abs(totalSpentLocal)) * 100).toFixed(2)), // Converte para número
+      }));
+  
+      // Atualizar os estados
+      setCategoryData(categoryStats); // Atualiza os dados por categoria
+      setTotalSpent(totalSpentLocal); // Atualiza o gasto total
+    } catch (error) {
+      console.error('Erro ao carregar os dados:', error);
+    }
+  };
+  
+  
+
   return (
     <LinearGradient colors={['#E3F2FD', '#BBDEFB']} style={styles.background}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Cabeçalho com Gradiente */}
+        {/* Cabeçalho */}
         <LinearGradient colors={['#4c669f', '#3b5998', '#192f6a']} style={styles.header}>
-          <Text style={styles.welcomeText}>Bem-vindo de volta!</Text>
-          <Text style={styles.subtitle}>Veja o resumo das suas finanças hoje</Text>
+          <Text style={styles.welcomeText}>Resumo de Gastos</Text>
+          <Text style={styles.subtitle}>Veja para onde seu dinheiro está indo</Text>
         </LinearGradient>
 
-        {/* Cartão de Saldo */}
-        <Animated.View style={styles.balanceCard} entering={SlideInUp} exiting={FadeOut}>
-          <Text style={styles.balanceTitle}>Saldo Total</Text>
-          <Text style={styles.balanceValue}>R$ 3.245,50</Text>
+        {/* Resumo Geral */}
+        <Animated.View style={styles.balanceCard} entering={SlideInUp}>
+          <Text style={styles.balanceTitle}>Gasto Total</Text>
+          <Text style={styles.balanceValue}>R$ {Math.abs(totalSpent).toFixed(2)}</Text>
         </Animated.View>
 
-        {/* Seção de Ações */}
-        <View style={styles.actionsContainer}>
-          <Animated.View entering={FadeIn}>
-            <Card style={styles.actionCard} elevation={3}>
-              <MaterialIcons name="add-circle-outline" size={48} color="#4CAF50" style={styles.icon} />
-              <Text style={styles.actionText}>Adicionar Receita</Text>
+        {/* Categorias Mais Gastas */}
+        <View style={styles.categoryContainer}>
+          <Text style={styles.sectionTitle}>Categorias Mais Gastas</Text>
+          {categoryData.map((item, index) => (
+            <Card key={index} style={styles.categoryCard} elevation={3}>
+              <View style={styles.categoryRow}>
+                <MaterialIcons name="label" size={32} color="#4CAF50" />
+                <View style={styles.categoryDetails}>
+                  <Text style={styles.categoryName}>{item.category}</Text>
+                  <Text style={styles.categoryTotal}>R$ {item.total.toFixed(2)}</Text>
+                  <Text style={styles.categoryPercentage}>{item.percentage}% dos gastos</Text>
+                </View>
+              </View>
             </Card>
-          </Animated.View>
-          <Animated.View entering={FadeIn}>
-            <Card style={styles.actionCard} elevation={3}>
-              <MaterialIcons name="remove-circle-outline" size={48} color="#f44336" style={styles.icon} />
-              <Text style={styles.actionText}>Adicionar Despesa</Text>
-            </Card>
-          </Animated.View>
+          ))}
         </View>
-
-        {/* Botão de Navegação para Relatório */}
-        <View style={{ marginVertical: 20 }}>
-          <Button
-            title="Ver Relatório"
-            onPress={() => navigation.navigate('Report')}
-          />
-        </View>
-
-        {/* Gráficos e Relatórios Rápidos */}
-        <Animated.View entering={FadeIn.delay(300)} style={styles.reportCard}>
-          <Text style={styles.reportTitle}>Resumo Semanal</Text>
-        </Animated.View>
       </ScrollView>
     </LinearGradient>
   );

@@ -5,96 +5,115 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 20,
     flexGrow: 1,
     alignItems: 'center',
+    padding: 20,
   },
   header: {
     width: '100%',
-    padding: 20,
-    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    borderRadius: 10,
     alignItems: 'center',
     marginBottom: 20,
   },
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#FFFFFF',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#ddd',
+    color: '#D1D9E6',
     textAlign: 'center',
+    marginTop: 5,
   },
   balanceCard: {
-    width: '90%',
-    backgroundColor: '#fff',
+    width: '100%',
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     alignItems: 'center',
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowRadius: 5,
     elevation: 3,
   },
   balanceTitle: {
     fontSize: 18,
-    fontWeight: '600',
     color: '#333',
   },
   balanceValue: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#4CAF50',
     marginTop: 10,
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  categoryContainer: {
     width: '100%',
     marginBottom: 20,
   },
-  actionCard: {
-    flex: 1,                      // Ocupa igualmente o espaço disponível
-    maxWidth: '98%',                 // Define uma largura máxima para não esticar demais
-    backgroundColor: '#fff',
-    paddingVertical: 20,
-    alignItems: 'center',
-    justifyContent: 'center',      // Centraliza o conteúdo verticalmente
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 4,
-    marginHorizontal: 5,           // Espaçamento entre os cartões
-  },
-  icon: {
-    marginBottom: 8,
-    textAlign:'center'
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '600',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
   },
-  reportCard: {
-    width: '90%',
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
+  categoryCard: {
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 15,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowRadius: 5,
     elevation: 3,
   },
-  reportTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryDetails: {
+    marginLeft: 15,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
+  },
+  categoryTotal: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 5,
+  },
+  categoryPercentage: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 2,
+  },
+  tipsCard: {
+    width: '100%',
+    backgroundColor: '#FFF3E0',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  tipsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF9800',
     marginBottom: 10,
+  },
+  tipsText: {
+    fontSize: 14,
+    color: '#6D4C41',
+    lineHeight: 20,
   },
 });
 
