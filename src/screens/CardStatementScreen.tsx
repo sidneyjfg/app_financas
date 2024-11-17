@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, Alert, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -26,35 +27,39 @@ type Category = {
 
 const CardStatementScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [monthlyTransactions, setMonthlyTransactions] = useState<MonthlyTransactions>({});
+  const [monthlyCardTransactions, setMonthlyCardTransactions] = useState<MonthlyTransactions>({});
   const [totalSpent, setTotalSpent] = useState(0);
   const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const excludeKeywords = ['pagamento recebido', 'fatura', 'cartão']; // Palavras-chave para excluir
+  const TRANSACTIONS_KEY = 'cardTransactions'; // Chave exclusiva para CardStatementScreen
 
+  // Atualiza as transações e categorias ao acessar a tela
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMonthlyCardTransactions();
+    }, [])
+  );
   useEffect(() => {
-    loadMonthlyTransactions();
+    loadMonthlyCardTransactions();
   }, []);
 
   useEffect(() => {
-    // Exibe transações e calcula totais apenas quando um mês válido é selecionado
     if (selectedMonth) {
-      const transactionsForSelectedMonth = monthlyTransactions[selectedMonth] || [];
-      const filteredTransactions = filterTransactions(transactionsForSelectedMonth); // Aplica o filtro ao carregar
+      const transactionsForSelectedMonth = monthlyCardTransactions[selectedMonth] || [];
+      const filteredTransactions = filterTransactions(transactionsForSelectedMonth);
       setTransactions(filteredTransactions);
       calculateTotals(filteredTransactions);
     } else {
-      // Limpa as transações e totais quando "Selecione o mês" é escolhido
       setTransactions([]);
       setTotalSpent(0);
       setCategoryTotals({});
     }
-  }, [selectedMonth, monthlyTransactions]);
+  }, [selectedMonth, monthlyCardTransactions]);
 
   const filterTransactions = (transactions: Transaction[]) => {
     if (!transactions || transactions.length === 0) return [];
-
     return transactions.filter((transaction) => {
       const lowerTitle = transaction.title ? transaction.title.toLowerCase() : '';
       return !excludeKeywords.some((keyword) => lowerTitle.includes(keyword));
@@ -84,9 +89,12 @@ const CardStatementScreen = () => {
       setTransactions(recategorizedTransactions);
       calculateTotals(recategorizedTransactions);
 
-      const updatedMonthlyTransactions = { ...monthlyTransactions, [selectedMonth]: recategorizedTransactions };
-      setMonthlyTransactions(updatedMonthlyTransactions);
-      await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(updatedMonthlyTransactions));
+      const updatedMonthlyCardTransactions = {
+        ...monthlyCardTransactions,
+        [selectedMonth]: recategorizedTransactions,
+      };
+      setMonthlyCardTransactions(updatedMonthlyCardTransactions);
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updatedMonthlyCardTransactions));
 
       Alert.alert('Sucesso', 'Categorias atualizadas com sucesso.');
     } else {
@@ -94,57 +102,57 @@ const CardStatementScreen = () => {
     }
   };
 
-
-  const TRANSACTIONS_KEY = 'cardTransactions'; // Chave única para CardStatementScreen
-
   const saveTransactionsByMonth = async (
     yearMonth: string,
     newTransactions: Transaction[],
     overwrite: boolean = false
   ) => {
     try {
-      // Obter dados armazenados
       const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
-      const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+      const monthlyCardTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
 
-      // Atualizar os dados no mês específico
-      monthlyTransactions[yearMonth] = overwrite
+      monthlyCardTransactions[yearMonth] = overwrite
         ? newTransactions
-        : [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
+        : [...(monthlyCardTransactions[yearMonth] || []), ...newTransactions];
 
-      // Salvar os dados atualizados
-      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(monthlyTransactions));
-
-      // Atualizar o estado
-      setMonthlyTransactions(monthlyTransactions);
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(monthlyCardTransactions));
+      setMonthlyCardTransactions(monthlyCardTransactions);
     } catch (error) {
       console.error('Erro ao salvar transações:', error);
       Alert.alert('Erro', 'Não foi possível salvar as transações.');
     }
   };
 
-  const loadMonthlyTransactions = async () => {
+  const loadMonthlyCardTransactions = async () => {
     try {
-      // Obter os dados do AsyncStorage
       const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
       const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+      setMonthlyCardTransactions(transactionsData);
 
-      // Atualizar o estado
-      setMonthlyTransactions(transactionsData);
+      // Atualiza as transações do mês selecionado
+      if (selectedMonth && transactionsData[selectedMonth]) {
+        const transactionsForSelectedMonth = transactionsData[selectedMonth];
+        const filteredTransactions = filterTransactions(transactionsForSelectedMonth);
+        setTransactions(filteredTransactions);
+        calculateTotals(filteredTransactions);
+      } else {
+        setTransactions([]);
+        setTotalSpent(0);
+        setCategoryTotals({});
+      }
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
       Alert.alert('Erro', 'Não foi possível carregar as transações.');
     }
   };
 
-
   const handleDeleteMonth = async () => {
     if (selectedMonth) {
-      const storedData = await AsyncStorage.getItem('monthlyTransactions');
-      const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-      delete monthlyTransactions[selectedMonth];
-      await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
-      setMonthlyTransactions(monthlyTransactions);
+      const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const monthlyCardTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+      delete monthlyCardTransactions[selectedMonth];
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(monthlyCardTransactions));
+      setMonthlyCardTransactions(monthlyCardTransactions);
       setTransactions([]);
       setSelectedMonth(null);
       setTotalSpent(0);
@@ -174,7 +182,6 @@ const CardStatementScreen = () => {
             const dateString = item.date || '';
             const parsedDate = new Date(dateString);
             const isValidDate = !isNaN(parsedDate.getTime());
-
             return {
               date: isValidDate ? parsedDate.toISOString().split('T')[0] : '',
               title: item.title || '',
@@ -191,10 +198,10 @@ const CardStatementScreen = () => {
               firstTransactionDate.getMonth() + 1
             ).padStart(2, '0')}`;
 
-            const storedData = await AsyncStorage.getItem('monthlyTransactions');
-            const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+            const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+            const monthlyCardTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
 
-            if (monthlyTransactions[yearMonth]) {
+            if (monthlyCardTransactions[yearMonth]) {
               Alert.alert(
                 'Mês já carregado',
                 `O mês ${yearMonth} já possui transações carregadas. Deseja sobrescrever os dados existentes?`,
@@ -208,14 +215,14 @@ const CardStatementScreen = () => {
                     onPress: async () => {
                       await saveTransactionsByMonth(yearMonth, validTransactions, true);
                       Alert.alert('Sucesso', 'As transações foram sobrescritas com sucesso.');
-                      setSelectedMonth(null); // Limpa a seleção do mês após o carregamento
+                      setSelectedMonth(null);
                     },
                   },
                 ]
               );
             } else {
               await saveTransactionsByMonth(yearMonth, validTransactions, false);
-              setSelectedMonth(null); // Limpa a seleção do mês após o carregamento
+              setSelectedMonth(null);
             }
           } else {
             Alert.alert('Erro', 'Nenhuma transação válida encontrada no arquivo CSV.');
@@ -226,8 +233,6 @@ const CardStatementScreen = () => {
       Alert.alert('Erro', 'Não foi possível processar o arquivo.');
     }
   };
-
-
 
   const calculateTotals = (transactions: Transaction[]) => {
     const totalsByCategory: Record<string, number> = {};
@@ -267,13 +272,12 @@ const CardStatementScreen = () => {
         style={styles.picker}
       >
         <Picker.Item label="Selecione o mês" value={null} />
-        {Object.keys(monthlyTransactions)
-          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime()) // Ordena os meses em ordem cronológica
+        {Object.keys(monthlyCardTransactions)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
           .map((yearMonth) => (
             <Picker.Item key={yearMonth} label={yearMonth} value={yearMonth} />
           ))}
       </Picker>
-
 
       <Text style={styles.totalExpense}>Total Gasto: R$ {totalSpent.toFixed(2)}</Text>
 

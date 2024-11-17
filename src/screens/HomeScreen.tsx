@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Card } from 'react-native-paper';
-import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
+import Animated, { SlideInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -23,9 +24,11 @@ const HomeScreen: React.FC = () => {
   const [categoryData, setCategoryData] = useState<CategoryStats[]>([]);
   const [totalSpent, setTotalSpent] = useState(0);
 
-  useEffect(() => {
-    loadCategoryStats();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCategoryStats();
+    }, [])
+  );
 
   const loadCategoryStats = async () => {
     try {
@@ -34,11 +37,11 @@ const HomeScreen: React.FC = () => {
       const transactions: Record<string, Transaction[]> = storedTransactions
         ? JSON.parse(storedTransactions)
         : {};
-  
+
       // Consolidar dados por categoria
       const totalsByCategory: Record<string, number> = {};
       let totalSpentLocal = 0;
-  
+
       // Iterar pelas transações por mês
       Object.values(transactions).forEach((monthly: Transaction[]) => {
         monthly.forEach((transaction) => {
@@ -49,14 +52,14 @@ const HomeScreen: React.FC = () => {
           }
         });
       });
-  
+
       // Converter os totais em um array de estatísticas
       const categoryStats = Object.entries(totalsByCategory).map(([category, total]) => ({
         category,
         total,
         percentage: parseFloat(((total / Math.abs(totalSpentLocal)) * 100).toFixed(2)), // Converte para número
       }));
-  
+
       // Atualizar os estados
       setCategoryData(categoryStats); // Atualiza os dados por categoria
       setTotalSpent(totalSpentLocal); // Atualiza o gasto total
@@ -64,8 +67,6 @@ const HomeScreen: React.FC = () => {
       console.error('Erro ao carregar os dados:', error);
     }
   };
-  
-  
 
   return (
     <LinearGradient colors={['#E3F2FD', '#BBDEFB']} style={styles.background}>
