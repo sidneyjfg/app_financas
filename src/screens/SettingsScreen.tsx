@@ -1,44 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, Button, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
+import { AppContext } from '../contexts/AppContext';
 
-// Defina o tipo das rotas, onde 'Home' é o nome da rota para a qual você deseja navegar
 type RootStackParamList = {
-  Home: undefined; // Adicione mais rotas se necessário
+  Home: undefined;
   Settings: undefined;
 };
 
 const SettingsScreen = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Settings'>>();
-  const [selectedScreen, setSelectedScreen] = useState<string | null>(null);
+  const { setDataReset } = useContext(AppContext);
+  const [selectedScreen, setSelectedScreen] = useState<string>('none'); // Valor inicial ajustado
 
   const screenKeys = {
     Home: 'homeData',
-    Transactions: 'monthlyTransactions',
+    ReportTransactions: 'reportTransactions',
+    Transactions: 'cardTransactions',
     Categories: 'categories',
   };
 
   const clearSelectedScreen = async () => {
-    if (!selectedScreen) {
+    if (!selectedScreen || selectedScreen === 'none') {
       Alert.alert('Erro', 'Por favor, selecione uma tela para limpar.');
       return;
     }
-
+  
     try {
+      if (selectedScreen === 'ReportTransactions') {
+        // Remova também os identificadores processados
+        await AsyncStorage.removeItem('processedIdentifiers');
+      }
+  
       await AsyncStorage.removeItem(screenKeys[selectedScreen as keyof typeof screenKeys]);
+      setDataReset(true); // Notifica que os dados foram redefinidos
       Alert.alert('Sucesso', `Os dados da tela "${selectedScreen}" foram limpos com sucesso!`);
     } catch (error) {
       console.error('Erro ao limpar os dados:', error);
       Alert.alert('Erro', `Não foi possível limpar os dados da tela "${selectedScreen}".`);
     }
   };
+  
+  
 
   const clearAllData = async () => {
     try {
       await AsyncStorage.clear();
+      setDataReset(true); // Notifica que os dados foram redefinidos
       Alert.alert('Sucesso', 'Todos os dados foram limpos com sucesso!');
     } catch (error) {
       console.error('Erro ao limpar todos os dados:', error);
@@ -53,12 +64,13 @@ const SettingsScreen = () => {
       <Text style={{ marginBottom: 10 }}>Selecione a tela para limpar os dados:</Text>
       <Picker
         selectedValue={selectedScreen}
-        onValueChange={(itemValue: string | null) => setSelectedScreen(itemValue)} // Declaração explícita do tipo
+        onValueChange={(itemValue) => setSelectedScreen(itemValue || 'none')} // Define um fallback para "none"
         style={{ width: 200, marginBottom: 20 }}
       >
-        <Picker.Item label="Selecione uma tela" value={null} />
+        <Picker.Item label="Selecione uma tela" value="none" />
         <Picker.Item label="Home" value="Home" />
-        <Picker.Item label="Transações" value="Transactions" />
+        <Picker.Item label="reportTransactions" value="ReportTransactions" />
+        <Picker.Item label="cardTransactions" value="Transactions" />
         <Picker.Item label="Categorias" value="Categories" />
       </Picker>
 

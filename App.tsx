@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { AppProvider } from './src/contexts/AppContext'; // Caminho do arquivo criado acima
 import HomeScreen from './src/screens/HomeScreen';
 import ReportScreen from './src/screens/ReportScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
@@ -12,15 +13,17 @@ const Tab = createBottomTabNavigator();
 
 const App = () => {
   return (
-    <NavigationContainer>
-      <Tab.Navigator>
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Report" component={ReportScreen} />
-        <Tab.Screen name="CardReport" component={CardStatementScreen} />
-        <Tab.Screen name="Categories" component={CategoriesScreen} />
-        <Tab.Screen name="Settings" component={SettingsScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <AppProvider>
+      <NavigationContainer>
+        <Tab.Navigator>
+          <Tab.Screen name="Home" component={HomeScreen} />
+          <Tab.Screen name="Report" component={ReportScreen} />
+          <Tab.Screen name="CardReport" component={CardStatementScreen} />
+          <Tab.Screen name="Categories" component={CategoriesScreen} />
+          <Tab.Screen name="Settings" component={SettingsScreen} />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </AppProvider>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Card } from 'react-native-paper';
@@ -7,6 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import styles from '../styles/HomeScreenStyles';
+import { transformSync } from '@babel/core';
+import { AppContext } from '../contexts/AppContext'; // Importa o contexto
 
 type CategoryStats = {
   category: string;
@@ -23,6 +25,9 @@ type Transaction = {
 const HomeScreen: React.FC = () => {
   const [categoryData, setCategoryData] = useState<CategoryStats[]>([]);
   const [totalSpent, setTotalSpent] = useState(0);
+  const { dataReset, setDataReset } = useContext(AppContext);
+  const excludeKeywords = ['pagamento recebido', 'fatura', 'cartão']; // Palavras-chave para excluir
+
 
   useFocusEffect(
     React.useCallback(() => {
@@ -30,36 +35,46 @@ const HomeScreen: React.FC = () => {
     }, [])
   );
 
+  useEffect(() => {
+    if (dataReset) {
+      loadCategoryStats(); // Recarrega os dados
+      setDataReset(false); // Reseta o estado para evitar loops
+    }
+  }, [dataReset]);
+
   const loadCategoryStats = async () => {
     try {
-      // Carregar transações da tela CardStatementScreen
       const storedTransactions = await AsyncStorage.getItem('cardTransactions');
       const transactions: Record<string, Transaction[]> = storedTransactions
         ? JSON.parse(storedTransactions)
         : {};
-
-      // Consolidar dados por categoria
+  
+      // Lista para armazenar os totais por categoria
       const totalsByCategory: Record<string, number> = {};
       let totalSpentLocal = 0;
-
+  
       // Iterar pelas transações por mês
       Object.values(transactions).forEach((monthly: Transaction[]) => {
         monthly.forEach((transaction) => {
-          if (transaction.amount < 0) {
-            totalSpentLocal += transaction.amount; // Soma os gastos totais
+          // Verificar se a transação deve ser excluída com base em excludedWords
+          const lowerTitle = transaction.title ? transaction.title.toLowerCase() : '';
+          const shouldExclude = excludeKeywords.some((word) => lowerTitle.includes(word));
+  
+          if (transaction.amount < 0 && !shouldExclude) {
+            totalSpentLocal += transaction.amount; // Soma os gastos totais (valores negativos)
             const category = transaction.category || 'Outros'; // Categoria padrão se não definida
             totalsByCategory[category] = (totalsByCategory[category] || 0) + Math.abs(transaction.amount);
           }
         });
       });
-
+  
       // Converter os totais em um array de estatísticas
       const categoryStats = Object.entries(totalsByCategory).map(([category, total]) => ({
         category,
         total,
         percentage: parseFloat(((total / Math.abs(totalSpentLocal)) * 100).toFixed(2)), // Converte para número
       }));
-
+  
       // Atualizar os estados
       setCategoryData(categoryStats); // Atualiza os dados por categoria
       setTotalSpent(totalSpentLocal); // Atualiza o gasto total
@@ -79,7 +94,7 @@ const HomeScreen: React.FC = () => {
 
         {/* Resumo Geral */}
         <Animated.View style={styles.balanceCard} entering={SlideInUp}>
-          <Text style={styles.balanceTitle}>Gasto Total</Text>
+          <Text style={styles.balanceTitle}>Gasto Total (Cartão de Crédito)</Text>
           <Text style={styles.balanceValue}>R$ {Math.abs(totalSpent).toFixed(2)}</Text>
         </Animated.View>
 

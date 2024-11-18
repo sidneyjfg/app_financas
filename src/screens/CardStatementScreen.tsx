@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, FlatList, Alert, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
@@ -8,6 +8,8 @@ import Papa from 'papaparse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import styles from '../styles/CardStatementScreenStyles';
+import { AppContext } from '../contexts/AppContext'; // Importa o contexto
+
 
 type Transaction = {
   date: string;
@@ -32,15 +34,36 @@ const CardStatementScreen = () => {
   const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const { dataReset, setDataReset } = useContext(AppContext);
   const excludeKeywords = ['pagamento recebido', 'fatura', 'cartão']; // Palavras-chave para excluir
-  const TRANSACTIONS_KEY = 'cardTransactions'; // Chave exclusiva para CardStatementScreen
+  const TRANSACTIONS_KEY = 'cardTransactions';
+  const CATEGORIES_KEY = 'categories';
+  const CATEGORIES_UPDATED_KEY = 'categoriesUpdated';
+
 
   // Atualiza as transações e categorias ao acessar a tela
   useFocusEffect(
     React.useCallback(() => {
-      loadMonthlyCardTransactions();
-    }, [])
+      const reloadIfCategoriesUpdated = async () => {
+        const categoriesUpdated = await AsyncStorage.getItem(CATEGORIES_UPDATED_KEY);
+
+        if (categoriesUpdated === 'true') {
+          await loadMonthlyCardTransactions();
+          await AsyncStorage.removeItem(CATEGORIES_UPDATED_KEY); // Limpa o sinalizador após atualização
+        }
+      };
+
+      reloadIfCategoriesUpdated();
+    }, [selectedMonth])
   );
+
+  useEffect(() => {
+    if (dataReset) {
+      loadMonthlyCardTransactions();
+      setDataReset(false); // Reseta o estado global
+    }
+  }, [dataReset]);
+
   useEffect(() => {
     loadMonthlyCardTransactions();
   }, []);
@@ -58,12 +81,25 @@ const CardStatementScreen = () => {
     }
   }, [selectedMonth, monthlyCardTransactions]);
 
+  const loadCategories = async () => {
+    const storedCategories = await AsyncStorage.getItem(CATEGORIES_KEY);
+    return storedCategories ? JSON.parse(storedCategories) : [];
+  };
+
   const filterTransactions = (transactions: Transaction[]) => {
     if (!transactions || transactions.length === 0) return [];
     return transactions.filter((transaction) => {
       const lowerTitle = transaction.title ? transaction.title.toLowerCase() : '';
       return !excludeKeywords.some((keyword) => lowerTitle.includes(keyword));
     });
+  };
+
+  const recategorizeTransactions = async (transactions: Transaction[]) => {
+    const categories = await loadCategories();
+    return transactions.map((transaction) => ({
+      ...transaction,
+      category: categorizeTransaction(transaction.title, categories),
+    }));
   };
 
   const categorizeTransaction = (title: string, categories: Category[]) => {
@@ -74,32 +110,6 @@ const CardStatementScreen = () => {
       }
     }
     return 'Outros';
-  };
-
-  const recategorizeTransactions = async () => {
-    const storedCategories = await AsyncStorage.getItem('categories');
-    const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
-
-    if (selectedMonth && transactions.length > 0) {
-      const recategorizedTransactions = transactions.map((transaction) => ({
-        ...transaction,
-        category: categorizeTransaction(transaction.title, categories),
-      }));
-
-      setTransactions(recategorizedTransactions);
-      calculateTotals(recategorizedTransactions);
-
-      const updatedMonthlyCardTransactions = {
-        ...monthlyCardTransactions,
-        [selectedMonth]: recategorizedTransactions,
-      };
-      setMonthlyCardTransactions(updatedMonthlyCardTransactions);
-      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updatedMonthlyCardTransactions));
-
-      Alert.alert('Sucesso', 'Categorias atualizadas com sucesso.');
-    } else {
-      Alert.alert('Erro', 'Nenhuma transação encontrada para atualizar.');
-    }
   };
 
   const saveTransactionsByMonth = async (
@@ -127,24 +137,25 @@ const CardStatementScreen = () => {
     try {
       const storedData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
       const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-      setMonthlyCardTransactions(transactionsData);
-
-      // Atualiza as transações do mês selecionado
+  
+      // Recategorizar as transações do mês selecionado
       if (selectedMonth && transactionsData[selectedMonth]) {
-        const transactionsForSelectedMonth = transactionsData[selectedMonth];
-        const filteredTransactions = filterTransactions(transactionsForSelectedMonth);
-        setTransactions(filteredTransactions);
-        calculateTotals(filteredTransactions);
-      } else {
-        setTransactions([]);
-        setTotalSpent(0);
-        setCategoryTotals({});
+        const recategorizedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
+        transactionsData[selectedMonth] = recategorizedTransactions;
+  
+        // Atualizar o AsyncStorage com os dados recategorizados
+        await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactionsData));
+  
+        setTransactions(recategorizedTransactions);
+        calculateTotals(recategorizedTransactions);
       }
+      setMonthlyCardTransactions(transactionsData);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
       Alert.alert('Erro', 'Não foi possível carregar as transações.');
     }
   };
+  
 
   const handleDeleteMonth = async () => {
     if (selectedMonth) {
@@ -301,10 +312,6 @@ const CardStatementScreen = () => {
 
       <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteMonth}>
         <Text style={styles.deleteButtonText}>Excluir Extrato do Mês</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.updateButton} onPress={recategorizeTransactions}>
-        <Text style={styles.updateButtonText}>Atualizar Categorias</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.floatingButton} onPress={handleSelectCSV}>

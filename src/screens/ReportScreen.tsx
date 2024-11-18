@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { parse } from 'date-fns';
 import { View, Text, FlatList, Alert, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -8,6 +9,7 @@ import Papa from 'papaparse';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import styles from '../styles/ReportScreen';
+import { AppContext } from '../contexts/AppContext'; // Importa o contexto
 
 type Transaction = {
   date: string;
@@ -29,30 +31,53 @@ type Category = {
 
 const ReportScreen = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [monthlyTransactions, setMonthlyTransactions] = useState<MonthlyTransactions>({});
+  const [monthlyReportTransactions, setMonthlyReportTransactions] = useState<MonthlyTransactions>({});
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const { dataReset, setDataReset } = useContext(AppContext);
+
+  const REPORT_TRANSACTIONS_KEY = 'reportTransactions';
+  const CATEGORIES_KEY = 'categories';
+
+  useEffect(() => {
+    const handleDataReset = async () => {
+      if (dataReset) {
+        try {
+          await loadMonthlyReportTransactions(); // Recarrega todas as transações
+          setDataReset(false); // Reseta o estado global após carregar os dados
+        } catch (error) {
+          console.error('Erro ao recarregar dados após o reset:', error);
+          Alert.alert('Erro', 'Não foi possível atualizar os dados após o reset.');
+        }
+      }
+    };
   
+    handleDataReset();
+  }, [dataReset]);
+
+  // Atualiza os dados sempre que a tela é acessada
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMonthlyReportTransactions();
+    }, [])
+  );
   
   const categorizeTransaction = (description: string, categories: Category[]) => {
     const lowerDescription = description.toLowerCase();
-  
     for (const category of categories) {
       if (category.keywords.some((word) => new RegExp(`\\b${word.toLowerCase()}\\b`).test(lowerDescription))) {
         return category.name;
       }
     }
-
     return 'Outros';
   };
 
   const recategorizeTransactions = async (transactions: Transaction[]) => {
-    const storedCategories = await AsyncStorage.getItem('categories');
+    const storedCategories = await AsyncStorage.getItem(CATEGORIES_KEY);
     const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
-  
     return transactions.map((transaction) => ({
       ...transaction,
       category: categorizeTransaction(transaction.description, categories),
@@ -62,50 +87,43 @@ const ReportScreen = () => {
   
   useEffect(() => {
     // Carrega todas as transações ao montar o componente
-    loadMonthlyTransactions();
+    loadMonthlyReportTransactions();
   }, []);
 
-  const loadMonthlyTransactions = async () => {
-    const storedData = await AsyncStorage.getItem('monthlyTransactions');
-    const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-  
-    if (selectedMonth && transactionsData[selectedMonth]) {
-      const updatedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
-      transactionsData[selectedMonth] = updatedTransactions;
-  
-      // Atualiza o estado com as transações e os totais atualizados
-      setTransactions(updatedTransactions);
-      calculateTotals(updatedTransactions);
+  const loadMonthlyReportTransactions = async () => {
+    try {
+      const storedData = await AsyncStorage.getItem(REPORT_TRANSACTIONS_KEY);
+      const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+
+      if (selectedMonth && transactionsData[selectedMonth]) {
+        const updatedTransactions = await recategorizeTransactions(transactionsData[selectedMonth]);
+        transactionsData[selectedMonth] = updatedTransactions;
+
+        setTransactions(updatedTransactions);
+        calculateTotals(updatedTransactions);
+      }
+
+      setMonthlyReportTransactions(transactionsData);
+    } catch (error) {
+      console.error('Erro ao carregar transações:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as transações.');
     }
-  
-    setMonthlyTransactions(transactionsData);
   };
 
   const handleDeleteMonth = async () => {
     if (selectedMonth) {
-      const storedData = await AsyncStorage.getItem('monthlyTransactions');
+      const storedData = await AsyncStorage.getItem(REPORT_TRANSACTIONS_KEY);
       const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
-  
-      const monthTransactions = monthlyTransactions[selectedMonth] || [];
       delete monthlyTransactions[selectedMonth];
-      await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
-  
-      const storedIdentifiers = await AsyncStorage.getItem('processedIdentifiers');
-      const processedIdentifiers = storedIdentifiers ? JSON.parse(storedIdentifiers) : [];
-      const updatedIdentifiers = processedIdentifiers.filter(
-        (id: string) => !monthTransactions.some(transaction => transaction.identifier === id)
-      );
-  
-      await AsyncStorage.setItem('processedIdentifiers', JSON.stringify(updatedIdentifiers));
-  
-      setSelectedMonth(null);
+      await AsyncStorage.setItem(REPORT_TRANSACTIONS_KEY, JSON.stringify(monthlyTransactions));
+      setMonthlyReportTransactions(monthlyTransactions);
       setTransactions([]);
+      setSelectedMonth(null);
       setTotalIncome(0);
       setTotalExpense(0);
       setCategoryTotals({});
-      loadMonthlyTransactions(); // Carrega os dados atualizados após a exclusão
     } else {
-      Alert.alert("Erro", "Nenhum mês selecionado para exclusão.");
+      Alert.alert('Erro', 'Nenhum mês selecionado para exclusão.');
     }
   };
   
@@ -121,7 +139,7 @@ const ReportScreen = () => {
       const processedIdentifiers = storedIdentifiers ? JSON.parse(storedIdentifiers) : [];
   
       // Recupera as categorias armazenadas para categorização
-      const storedCategories = await AsyncStorage.getItem('categories');
+      const storedCategories = await AsyncStorage.getItem(CATEGORIES_KEY);
       const categories: Category[] = storedCategories ? JSON.parse(storedCategories) : [];
 
   
@@ -173,7 +191,7 @@ const ReportScreen = () => {
               await AsyncStorage.setItem('processedIdentifiers', JSON.stringify(processedIdentifiers));
             }
   
-            loadMonthlyTransactions();
+            loadMonthlyReportTransactions();
           } else {
             Alert.alert("Erro", "Nenhuma transação válida encontrada no arquivo CSV.");
           }
@@ -189,36 +207,44 @@ const ReportScreen = () => {
     }
   };
   
-  
-
 
   const saveTransactionsByMonth = async (yearMonth: string, newTransactions: Transaction[]) => {
-    const storedData = await AsyncStorage.getItem('monthlyTransactions');
+    const storedData = await AsyncStorage.getItem(REPORT_TRANSACTIONS_KEY);
     const monthlyTransactions: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
 
     monthlyTransactions[yearMonth] = [...(monthlyTransactions[yearMonth] || []), ...newTransactions];
 
-    await AsyncStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions));
+    await AsyncStorage.setItem(REPORT_TRANSACTIONS_KEY, JSON.stringify(monthlyTransactions));
   };
 
   useEffect(() => {
     const loadTransactionsWithCategoryCheck = async () => {
-        const categoriesUpdated = await AsyncStorage.getItem('categoriesUpdated');
-        if (categoriesUpdated === 'true') {
-            // Recarrega as transações e recategoriza se houver uma atualização de categorias
-            await loadMonthlyTransactions();
-            await AsyncStorage.removeItem('categoriesUpdated'); // Remove o sinalizador após o carregamento
-        }
+        try {
+            // Verifica se as categorias foram atualizadas
+            const categoriesUpdated = await AsyncStorage.getItem('categoriesUpdated');
+            if (categoriesUpdated === 'true') {
+                // Recarrega as transações e recategoriza se houver uma atualização de categorias
+                await loadMonthlyReportTransactions();
+                await AsyncStorage.removeItem('categoriesUpdated'); // Remove o sinalizador após o carregamento
+            }
 
-        if (selectedMonth) {
-            const transactions = monthlyTransactions[selectedMonth] || [];
-            setTransactions(transactions);
-            calculateTotals(transactions);
+            // Carrega as transações do mês selecionado
+            if (selectedMonth) {
+                const storedData = await AsyncStorage.getItem(REPORT_TRANSACTIONS_KEY); // Usando a nova chave
+                const transactionsData: MonthlyTransactions = storedData ? JSON.parse(storedData) : {};
+                const transactions = transactionsData[selectedMonth] || [];
+
+                setTransactions(transactions); // Atualiza as transações do mês
+                calculateTotals(transactions); // Recalcula os totais
+            }
+        } catch (error) {
+            console.error('Erro ao carregar transações com categorias atualizadas:', error);
+            Alert.alert('Erro', 'Não foi possível atualizar as transações.');
         }
     };
 
     loadTransactionsWithCategoryCheck();
-}, [selectedMonth, monthlyTransactions]);
+}, [selectedMonth, monthlyReportTransactions]);
 
   const calculateTotals = (transactions: Transaction[]) => {
     let income = 0;
@@ -270,7 +296,7 @@ const ReportScreen = () => {
         style={styles.picker}
       >
         <Picker.Item label="Selecione o mês" value={null} />
-        {Object.keys(monthlyTransactions).map((yearMonth) => (
+        {Object.keys(monthlyReportTransactions).map((yearMonth) => (
           <Picker.Item key={yearMonth} label={yearMonth} value={yearMonth} />
         ))}
       </Picker>
